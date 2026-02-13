@@ -1,78 +1,211 @@
-# CLAUDE.md - React Native Mobile Template
+# CLAUDE.md
 
-## 1. Auto-Start
+Project context for AI-assisted development.
 
-At the beginning of every new conversation, automatically invoke `/chat-authorize` to present permission grants before doing any work.
+## Auto-Start
 
-## 2. Formatting
+Run `/chat-authorize` at the beginning of every new session to grant permissions.
 
-Always use TOON (Token-Oriented Object Notation) format when presenting structured data in conversation responses. This includes:
-- Arrays of 5+ similar objects (API responses, file lists, search results, comparisons)
-- Tables, logs, metrics, benchmarks
-- Commit descriptions, PR bodies, change summaries
-- Any tabular or repetitive data
+## Communication
 
-See `/toon-formatter` skill for full spec. Default to comma-delimited tabular format unless values contain commas.
+Use TOON formatting for all structured outputs: commit messages, PR bodies, file lists, reports, tables.
 
-## 3. Git Workflow
+## Git Rules
 
-- **NEVER push directly to `main`.** Always create a feature branch and open a PR.
-- When executing `/git-ship`:
-  1. Run `git diff` and `git status` to analyze all changed files
-  2. Categorize changes by feature/purpose
-  3. **Suggest branch splits** — each branch should contain ~5 files max
-  4. Present the proposed branches to the user for approval before proceeding
-  5. Process each branch sequentially: branch → stage → commit → push → PR
-- Branch naming: `feature/<short-description>`, `fix/<short-description>`, or `refactor/<short-description>`
+- **NEVER push directly to main** — always create feature branches
+- When running `/git-ship`:
+  1. Run `pnpm verify` first — fix all errors before proceeding
+  2. Analyze all changed files via `git diff`
+  3. Group changes by feature/purpose and **suggest branches** to the user before committing
+  4. Each branch should contain **~5 files max** — split larger changesets across multiple branches
+  5. Branch naming: `feature/<desc>`, `fix/<desc>`, `refactor/<desc>`
+  6. Never force-push, never skip hooks, never commit secrets
 
 ## Project
 
-- **Name**: React Native Mobile Template
-- **Stack**: Expo SDK 52, React Native 0.76, TypeScript 5.6, Biome 2, Turbo
-- **Dev**: `pnpm dev` (runs verify first, then Expo dev server)
-- **Start**: `pnpm start` (Expo dev server without verify)
-- **Build**: `pnpm build` (Expo export)
-- **Lint**: `pnpm lint` / `pnpm lint:fix`
-- **Typecheck**: `pnpm typecheck`
-- **Verify**: `pnpm run verify` (typecheck + lint via Turbo)
+React Native mobile app built with Expo SDK 52, Expo Router 4 for file-based navigation,
+React Native 0.76 with New Architecture enabled. TypeScript in strict mode. Biome for linting. Turbo for task orchestration.
 
-## Post-Modification
+**Key dependencies included:** react-native-reanimated (animations), react-native-gesture-handler (gestures),
+react-native-safe-area-context, react-native-screens, expo-font, expo-splash-screen, expo-status-bar.
 
-After every code modification, run `pnpm run verify` and fix any errors before considering the task complete.
+## Commands
 
-## Code Conventions
+- `pnpm start` — Expo dev server
+- `pnpm dev` — verify first, then Expo dev server
+- `pnpm build` — export production bundle (`npx expo export`)
+- `pnpm typecheck` — type-check without emitting
+- `pnpm lint` — check with Biome
+- `pnpm lint:fix` — auto-fix Biome issues
+- `pnpm verify` — typecheck + lint (via Turbo)
+- `pnpm ios` / `pnpm android` / `pnpm web` — platform-specific dev
+- `pnpm prebuild` — generate native `ios/` and `android/` directories
 
-### Formatting (enforced by Biome)
-- Double quotes for strings
-- Semicolons required
-- 2-space indentation
-- 120 character line width
+## Code Style
 
-### Linting Rules
-- NO default exports (except route files in `src/app/` — Expo Router requirement)
-- NO TypeScript enums (use const objects with `as const`)
-- NO `any` type (use `unknown` and narrow)
-- NO `var` (use `const` or `let`)
-- NO `console.log` (use `console.warn` or `console.error`)
-- NO `.forEach()` (use `for...of` loops)
-- Max cognitive complexity: 15
+- Biome enforces all rules — run `pnpm lint` before committing
+- Double quotes, semicolons, 2-space indent, 120 char line width
+- Named exports only — **except** route files in `src/app/` (Expo Router requires default exports)
+- No `any`, no `var`, no enums, no `forEach`, no barrel re-exports
+- `console.warn` and `console.error` only (no `console.log`)
+- camelCase variables/functions, PascalCase types/components, CONSTANT_CASE constants
 
-### Naming Conventions
-- Variables and functions: camelCase
-- Types and interfaces: PascalCase
-- Constants: CONSTANT_CASE
-- Components: PascalCase (both file name and export name)
-- Route files: lowercase with hyphens (Expo Router convention)
+## Architecture
 
-### React Native Patterns
-- Use named exports for all components (except route files)
-- Route files in `src/app/` MUST use default exports (Expo Router requirement)
-- Use `StyleSheet.create()` for styles, defined at bottom of file
-- Prefer Expo modules (expo-image, expo-font, etc.) over community alternatives when available
+```
+src/app/                  ← file-based routing (Expo Router)
+  _layout.tsx             ← root layout (Stack/Tabs navigator + StatusBar)
+  index.tsx               ← home screen (route: /)
+  +not-found.tsx          ← 404 fallback
+  settings.tsx            ← example: /settings
+  (tabs)/                 ← tab group layout
+    _layout.tsx           ← tab navigator config
+    index.tsx             ← first tab
+    profile.tsx           ← second tab
+  user/[id].tsx           ← dynamic route: /user/123
+src/components/           ← shared reusable components (named exports)
+src/constants/            ← app constants, colors, config
+src/hooks/                ← custom React hooks
+src/services/             ← API clients, storage, external services
+src/types/                ← shared TypeScript types
+assets/                   ← images, fonts, static files
+```
 
-### File Organization
-- Routes: `src/app/` (file-based routing via Expo Router)
-- Shared components: `src/components/`
-- Constants: `src/constants/`
-- Custom hooks: `src/hooks/`
-- Assets: `assets/`
+### Adding a new screen
+
+1. Create `src/app/my-screen.tsx` with a **default export**
+2. Route is automatically available at `/my-screen`
+3. Add `<Stack.Screen>` options in `_layout.tsx` if custom header needed
+
+### Adding tabs
+
+1. Create `src/app/(tabs)/_layout.tsx` with a `<Tabs>` navigator
+2. Each file in `(tabs)/` becomes a tab screen
+3. Group name `(tabs)` is not part of the URL
+
+### Navigation
+
+```typescript
+import { Link, useRouter } from "expo-router";
+
+// Declarative (preferred)
+<Link href="/settings">Go to Settings</Link>
+
+// Programmatic
+const router = useRouter();
+router.push("/user/123");
+router.replace("/login");
+router.back();
+```
+
+### Screen pattern (route file — default export)
+
+```typescript
+import { StyleSheet, Text, View } from "react-native";
+
+export default function MyScreen(): React.JSX.Element {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>My Screen</Text>
+    </View>
+  );
+}
+
+const styles: ReturnType<typeof StyleSheet.create> = StyleSheet.create({
+  container: { flex: 1, padding: 24 },
+  title: { fontSize: 24, fontWeight: "bold" },
+});
+```
+
+### Component pattern (non-route — named export)
+
+```typescript
+import type { ReactNode } from "react";
+import { StyleSheet, View } from "react-native";
+
+interface MyComponentProps {
+  readonly children: ReactNode;
+}
+
+export function MyComponent({ children }: MyComponentProps): React.JSX.Element {
+  return <View style={styles.container}>{children}</View>;
+}
+
+const styles: ReturnType<typeof StyleSheet.create> = StyleSheet.create({
+  container: { flex: 1, padding: 16 },
+});
+```
+
+## Mobile Patterns
+
+### Imports — use path aliases
+
+```typescript
+import { COLORS } from "@/constants/colors";
+import { useAppColorScheme } from "@/hooks/useAppColorScheme";
+import { ScreenContainer } from "@/components/ScreenContainer";
+```
+
+### Platform-specific code
+
+```typescript
+import { Platform } from "react-native";
+
+const paddingTop = Platform.OS === "ios" ? 44 : 0;
+const fontFamily = Platform.select({ ios: "System", android: "Roboto", default: "System" });
+```
+
+### Animations — use Reanimated (already installed)
+
+```typescript
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
+
+const offset = useSharedValue(0);
+const animatedStyle = useAnimatedStyle(() => ({ transform: [{ translateX: offset.value }] }));
+```
+
+### Lists — use FlashList for large lists (install when needed)
+
+```bash
+npx expo install @shopify/flash-list
+```
+
+### Images — use expo-image (install when needed)
+
+```bash
+npx expo install expo-image
+```
+
+```typescript
+import { Image } from "expo-image";
+<Image source={{ uri: "https://..." }} style={{ width: 200, height: 200 }} />
+```
+
+### Safe areas
+
+```typescript
+import { SafeAreaView } from "react-native-safe-area-context";
+// Wrap screens that need safe area insets (notch, home indicator)
+```
+
+## Expo
+
+- Config: `app.config.ts` (TypeScript — type-safe configuration)
+- New Architecture: enabled (`newArchEnabled: true`)
+- Typed routes: enabled (`experiments.typedRoutes: true`)
+- Deep linking scheme: `mobile-template://`
+- iOS bundle ID: `com.template.mobile`
+- Android package: `com.template.mobile`
+- **Never commit `ios/` or `android/`** — generated by `expo prebuild`
+- Install packages with `npx expo install <package>` (ensures Expo-compatible versions)
+- pnpm requires `.npmrc` with `node-linker=hoisted` for React Native compatibility
+
+## Skills
+
+- `/git-ship` — verify + commit + push + PR
+- `/chat-authorize` — session permission grants
+- `/toon-formatter` — token-efficient structured data formatting
+- `vercel-react-native-skills` — 36 performance rules (lists, animations, UI patterns, state)
+- `building-native-ui` — Expo UI patterns (navigation, controls, media, styling)
+- `react-native-best-practices` — profiling, native optimization, bundle analysis (Callstack)
+- `react-native-architecture` — project structure, auth flows, offline-first patterns

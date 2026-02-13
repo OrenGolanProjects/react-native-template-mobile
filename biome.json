@@ -12,6 +12,7 @@
       "!**/.turbo",
       "!**/.pnpm-store",
       "!**/.expo",
+      "!**/.agents",
       "!pnpm-lock.yaml"
     ]
   },
