@@ -1,5 +1,5 @@
 import { Link, Stack } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, type TextStyle, View, type ViewStyle } from "react-native";
 
 export default function NotFoundScreen(): React.JSX.Element {
   return (
@@ -15,7 +15,7 @@ export default function NotFoundScreen(): React.JSX.Element {
   );
 }
 
-const styles: ReturnType<typeof StyleSheet.create> = StyleSheet.create({
+const styles: { container: ViewStyle; title: TextStyle; link: TextStyle; linkText: TextStyle } = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: "center",

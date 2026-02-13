@@ -23,8 +23,8 @@ Use TOON formatting for all structured outputs: commit messages, PR bodies, file
 
 ## Project
 
-React Native mobile app built with Expo SDK 52, Expo Router 4 for file-based navigation,
-React Native 0.76 with New Architecture enabled. TypeScript in strict mode. Biome for linting. Turbo for task orchestration.
+React Native mobile app built with Expo SDK 54, Expo Router 6 for file-based navigation,
+React Native 0.81 with New Architecture enabled. TypeScript in strict mode. Biome for linting. Turbo for task orchestration.
 
 **Key dependencies included:** react-native-reanimated (animations), react-native-gesture-handler (gestures),
 react-native-safe-area-context, react-native-screens, expo-font, expo-splash-screen, expo-status-bar.
@@ -101,7 +101,7 @@ router.back();
 ### Screen pattern (route file — default export)
 
 ```typescript
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, type TextStyle, View, type ViewStyle } from "react-native";
 
 export default function MyScreen(): React.JSX.Element {
   return (
@@ -111,7 +111,7 @@ export default function MyScreen(): React.JSX.Element {
   );
 }
 
-const styles: ReturnType<typeof StyleSheet.create> = StyleSheet.create({
+const styles: { container: ViewStyle; title: TextStyle } = StyleSheet.create({
   container: { flex: 1, padding: 24 },
   title: { fontSize: 24, fontWeight: "bold" },
 });
@@ -121,7 +121,7 @@ const styles: ReturnType<typeof StyleSheet.create> = StyleSheet.create({
 
 ```typescript
 import type { ReactNode } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, type ViewStyle } from "react-native";
 
 interface MyComponentProps {
   readonly children: ReactNode;
@@ -131,7 +131,7 @@ export function MyComponent({ children }: MyComponentProps): React.JSX.Element {
   return <View style={styles.container}>{children}</View>;
 }
 
-const styles: ReturnType<typeof StyleSheet.create> = StyleSheet.create({
+const styles: { container: ViewStyle } = StyleSheet.create({
   container: { flex: 1, padding: 16 },
 });
 ```
