@@ -1,0 +1,67 @@
+import { API_BASE_URL } from "@/constants/config";
+import { getAuthToken } from "@/services/firebase";
+import type {
+  ApiResponse,
+  Project,
+  ReportEntry,
+  SendReportPayload,
+  SendReportResult,
+  UserCredentialsPayload,
+} from "@/types/api";
+
+export class ApiError extends Error {
+  readonly statusCode: number;
+
+  constructor(statusCode: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.statusCode = statusCode;
+  }
+}
+
+async function apiPost<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  const token = await getAuthToken();
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const json = (await response.json()) as ApiResponse & T;
+
+  if (json.status.status !== 200) {
+    throw new ApiError(json.status.status, json.status.message);
+  }
+
+  return json as T;
+}
+
+export async function saveUserCredentials(payload: UserCredentialsPayload): Promise<void> {
+  await apiPost("/saveUserCredentials", payload as unknown as Record<string, unknown>);
+}
+
+export async function getUserProjects(browserID: string): Promise<readonly Project[]> {
+  const result = await apiPost<{ projects: readonly Project[] }>("/getUserProjects", { browserID });
+  return result.projects;
+}
+
+export async function getCompareReports(
+  fromDate: string,
+  toDate: string,
+  browserID: string
+): Promise<readonly ReportEntry[]> {
+  const result = await apiPost<{ reports: readonly ReportEntry[] }>("/getCompareReports", {
+    fromDate,
+    toDate,
+    browserID,
+  });
+  return result.reports;
+}
+
+export async function sendReport(payload: SendReportPayload): Promise<SendReportResult> {
+  const result = await apiPost<SendReportResult>("/sendReport", payload as unknown as Record<string, unknown>);
+  return result;
+}
