@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +12,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { COLORS } from "@/constants/colors";
+import { triggerHapticError } from "@/hooks/useHaptics";
 import { saveUserCredentials } from "@/services/api";
 import { useAuth } from "@/services/authContext";
 
@@ -52,13 +52,14 @@ export default function SignInScreen(): React.JSX.Element {
     } catch (err: unknown) {
       const firebaseError = err as { message?: string };
       setError(firebaseError.message ?? "Authentication failed");
+      triggerHapticError();
     } finally {
       setIsLoading(false);
     }
   }
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <KeyboardAvoidingView style={styles.container} behavior={process.env.EXPO_OS === "ios" ? "padding" : "height"}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>DH Reporting</Text>
         <Text style={styles.subtitle}>{isSignUp ? "Create an account" : "Sign in to continue"}</Text>
@@ -110,9 +111,17 @@ export default function SignInScreen(): React.JSX.Element {
           </View>
         ) : null}
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <Text selectable style={styles.error}>
+            {error}
+          </Text>
+        ) : null}
 
-        <Pressable style={styles.primaryButton} onPress={handleSubmit} disabled={isLoading}>
+        <Pressable
+          style={[styles.primaryButton, isLoading && styles.buttonDisabled]}
+          onPress={handleSubmit}
+          disabled={isLoading}
+        >
           {isLoading ? (
             <ActivityIndicator color={COLORS.background} />
           ) : (
@@ -140,6 +149,7 @@ const styles: {
   error: TextStyle;
   primaryButton: ViewStyle;
   primaryButtonText: TextStyle;
+  buttonDisabled: ViewStyle;
   secondaryButton: ViewStyle;
   secondaryButtonText: TextStyle;
 } = StyleSheet.create({
@@ -177,6 +187,7 @@ const styles: {
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 8,
+    borderCurve: "continuous",
     padding: 14,
     fontSize: 16,
     color: COLORS.text,
@@ -192,6 +203,7 @@ const styles: {
   primaryButton: {
     backgroundColor: COLORS.primary,
     borderRadius: 8,
+    borderCurve: "continuous",
     padding: 16,
     alignItems: "center",
     marginBottom: 12,
@@ -200,6 +212,9 @@ const styles: {
     color: COLORS.background,
     fontSize: 16,
     fontWeight: "600",
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   secondaryButton: {
     padding: 12,

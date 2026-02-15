@@ -14,6 +14,7 @@ import {
 import { DateTimePicker } from "@/components/DateTimePicker";
 import { COLORS } from "@/constants/colors";
 import { useBrowserId } from "@/hooks/useBrowserId";
+import { triggerHapticError, triggerHapticLight, triggerHapticSuccess } from "@/hooks/useHaptics";
 import { getUserProjects, sendReport } from "@/services/api";
 import type { Project, SendReportResult } from "@/types/api";
 
@@ -48,6 +49,8 @@ export default function SubmitReportScreen(): React.JSX.Element {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<SendReportResult | null>(null);
+
+  const isSubmitDisabled = isSubmitting || !selectedProject;
 
   useEffect(() => {
     async function loadProjects(): Promise<void> {
@@ -94,9 +97,11 @@ export default function SubmitReportScreen(): React.JSX.Element {
         },
       });
       setResult(submitResult);
+      triggerHapticSuccess();
     } catch (err: unknown) {
       const apiError = err as { message?: string };
       setError(apiError.message ?? "Failed to submit report");
+      triggerHapticError();
     } finally {
       setIsSubmitting(false);
     }
@@ -104,28 +109,38 @@ export default function SubmitReportScreen(): React.JSX.Element {
 
   if (result) {
     return (
-      <View style={styles.container}>
-        <View style={styles.resultContainer}>
-          <Text style={styles.resultTitle}>Report Submitted</Text>
-          <Text style={styles.resultText}>Valid entries: {result.validLines.length}</Text>
-          {result.invalidLines.length > 0 && (
-            <Text style={styles.resultError}>Invalid entries: {result.invalidLines.length}</Text>
-          )}
-          {result.invalidLines.map((line, i) => (
-            <Text key={`invalid-${line.project}-${line.reportDate}-${i}`} style={styles.resultErrorDetail}>
-              {line.project} ({line.reportDate}): {line.reason}
-            </Text>
-          ))}
-          <Pressable style={styles.primaryButton} onPress={(): void => router.back()}>
-            <Text style={styles.primaryButtonText}>Back to Reports</Text>
-          </Pressable>
-        </View>
-      </View>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.resultScrollContent}
+        contentInsetAdjustmentBehavior="automatic"
+      >
+        <Text style={styles.resultTitle}>Report Submitted</Text>
+        <Text selectable style={styles.resultText}>
+          Valid entries: {result.validLines.length}
+        </Text>
+        {result.invalidLines.length > 0 && (
+          <Text selectable style={styles.resultError}>
+            Invalid entries: {result.invalidLines.length}
+          </Text>
+        )}
+        {result.invalidLines.map((line, i) => (
+          <Text key={`invalid-${line.project}-${line.reportDate}-${i}`} selectable style={styles.resultErrorDetail}>
+            {line.project} ({line.reportDate}): {line.reason}
+          </Text>
+        ))}
+        <Pressable style={styles.primaryButton} onPress={(): void => router.back()}>
+          <Text style={styles.primaryButtonText}>Back to Reports</Text>
+        </Pressable>
+      </ScrollView>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      contentInsetAdjustmentBehavior="automatic"
+    >
       <Text style={styles.sectionTitle}>Select Project</Text>
 
       {isLoadingProjects ? (
@@ -136,7 +151,10 @@ export default function SubmitReportScreen(): React.JSX.Element {
             <Pressable
               key={project.btCode}
               style={[styles.projectCard, selectedProject?.btCode === project.btCode && styles.projectCardSelected]}
-              onPress={(): void => setSelectedProject(project)}
+              onPress={(): void => {
+                triggerHapticLight();
+                setSelectedProject(project);
+              }}
             >
               <Text style={styles.projectCode}>{project.btCode}</Text>
               <Text style={styles.projectName}>{project.shortDescription}</Text>
@@ -170,9 +188,17 @@ export default function SubmitReportScreen(): React.JSX.Element {
         numberOfLines={3}
       />
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <Text selectable style={styles.error}>
+          {error}
+        </Text>
+      ) : null}
 
-      <Pressable style={styles.primaryButton} onPress={handleSubmit} disabled={isSubmitting || !selectedProject}>
+      <Pressable
+        style={[styles.primaryButton, isSubmitDisabled && styles.buttonDisabled]}
+        onPress={handleSubmit}
+        disabled={isSubmitDisabled}
+      >
         {isSubmitting ? (
           <ActivityIndicator color={COLORS.background} />
         ) : (
@@ -201,7 +227,8 @@ const styles: {
   error: TextStyle;
   primaryButton: ViewStyle;
   primaryButtonText: TextStyle;
-  resultContainer: ViewStyle;
+  buttonDisabled: ViewStyle;
+  resultScrollContent: ViewStyle;
   resultTitle: TextStyle;
   resultText: TextStyle;
   resultError: TextStyle;
@@ -232,6 +259,7 @@ const styles: {
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 8,
+    borderCurve: "continuous",
     padding: 12,
     marginBottom: 8,
   },
@@ -271,6 +299,7 @@ const styles: {
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 8,
+    borderCurve: "continuous",
     padding: 12,
     fontSize: 16,
     color: COLORS.text,
@@ -287,6 +316,7 @@ const styles: {
   primaryButton: {
     backgroundColor: COLORS.primary,
     borderRadius: 8,
+    borderCurve: "continuous",
     padding: 16,
     alignItems: "center",
     marginTop: 8,
@@ -296,8 +326,11 @@ const styles: {
     fontSize: 16,
     fontWeight: "600",
   },
-  resultContainer: {
-    flex: 1,
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  resultScrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
     padding: 24,
   },
