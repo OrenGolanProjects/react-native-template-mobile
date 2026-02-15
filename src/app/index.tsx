@@ -10,26 +10,19 @@ import {
   View,
   type ViewStyle,
 } from "react-native";
+import { DailyReportCard } from "@/components/DailyReportCard";
 import { DateTimePicker } from "@/components/DateTimePicker";
+import { ReportCard } from "@/components/ReportCard";
 import { COLORS } from "@/constants/colors";
 import { useBrowserId } from "@/hooks/useBrowserId";
-import { getCompareReports } from "@/services/api";
-import { useAuth } from "@/services/authContext";
-import type { ReportEntry } from "@/types/api";
+import { triggerHapticError, triggerHapticLight, triggerHapticSuccess } from "@/hooks/useHaptics";
+import { getCompareReports, getDailyReports } from "@/services/api";
+import type { DailyReportEntry, ReportEntry } from "@/types/api";
+
+type ReportType = "compare" | "daily";
 
 function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];
-}
-
-function extractDate(workDate: string): string {
-  return workDate.split("T")[0];
-}
-
-function formatTimeRange(minTime: string | null, maxTime: string | null): string {
-  if (!(minTime && maxTime)) {
-    return "—";
-  }
-  return `${minTime.slice(0, 5)} - ${maxTime.slice(0, 5)}`;
 }
 
 function getMonthStart(): Date {
@@ -42,20 +35,23 @@ function getMonthEnd(): Date {
   return new Date(now.getFullYear(), now.getMonth() + 1, 0);
 }
 
-const STATUS_COLORS = {
-  reported: "#4caf50",
-  open: "#ff9800",
-} as const;
-
 export default function ReportsScreen(): React.JSX.Element {
   const router = useRouter();
-  const { signOut } = useAuth();
   const browserId = useBrowserId();
+  const [reportType, setReportType] = useState<ReportType>("compare");
   const [fromDate, setFromDate] = useState(getMonthStart);
   const [toDate, setToDate] = useState(getMonthEnd);
-  const [reports, setReports] = useState<readonly ReportEntry[]>([]);
+  const [compareReports, setCompareReports] = useState<readonly ReportEntry[]>([]);
+  const [dailyReports, setDailyReports] = useState<readonly DailyReportEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const isLoadDisabled = isLoading || !browserId;
+
+  function handleReportTypeChange(type: ReportType): void {
+    triggerHapticLight();
+    setReportType(type);
+  }
 
   async function handleLoadReports(): Promise<void> {
     if (!browserId) {
@@ -64,63 +60,63 @@ export default function ReportsScreen(): React.JSX.Element {
     setError("");
     setIsLoading(true);
     try {
-      const result = await getCompareReports(formatDate(fromDate), formatDate(toDate), browserId);
-      setReports(result);
+      const from = formatDate(fromDate);
+      const to = formatDate(toDate);
+      if (reportType === "compare") {
+        const result = await getCompareReports(from, to, browserId);
+        setCompareReports(result);
+      } else {
+        const result = await getDailyReports(from, to, browserId);
+        setDailyReports(result);
+      }
+      triggerHapticSuccess();
     } catch (err: unknown) {
       const apiError = err as { message?: string };
       setError(apiError.message ?? "Failed to load reports");
+      triggerHapticError();
     } finally {
       setIsLoading(false);
     }
   }
 
-  const renderReportItem = useCallback(({ item }: { item: ReportEntry }): React.JSX.Element => {
-    const isReported = item.lastDocID !== null;
-    const statusColor = isReported ? STATUS_COLORS.reported : STATUS_COLORS.open;
-
-    return (
-      <View style={[styles.reportCard, { borderLeftColor: statusColor, borderLeftWidth: 4 }]}>
-        <View style={styles.reportHeader}>
-          <View>
-            <Text style={styles.reportDate}>{extractDate(item.workDate)}</Text>
-            <Text style={styles.reportDay}>{item.dayInWeek}</Text>
-          </View>
-          <View style={styles.hoursSection}>
-            <Text style={[styles.reportHours, { color: statusColor }]}>{item.totalServiceHours.toFixed(1)}h</Text>
-            <Text style={styles.expectedHours}>/ {item.agreementTotalHours}h</Text>
-          </View>
-        </View>
-
-        <View style={styles.reportDetails}>
-          <Text style={styles.timeRange}>{formatTimeRange(item.openReportingMinTime, item.openReportingManTime)}</Text>
-          <Text style={[styles.statusBadge, { color: statusColor }]}>{isReported ? "Reported" : "Open"}</Text>
-        </View>
-
-        {isReported && item.diffAgreementAndServiceHours !== 0 && (
-          <Text
-            style={[
-              styles.diffText,
-              { color: item.diffAgreementAndServiceHours > 0 ? STATUS_COLORS.reported : "#d32f2f" },
-            ]}
-          >
-            {item.diffAgreementAndServiceHours > 0 ? "+" : ""}
-            {item.diffAgreementAndServiceHours.toFixed(1)}h vs expected
-          </Text>
-        )}
-      </View>
-    );
+  const renderCompareItem = useCallback(({ item }: { item: ReportEntry }): React.JSX.Element => {
+    return <ReportCard item={item} />;
   }, []);
 
-  const keyExtractor = useCallback((_item: ReportEntry, index: number): string => {
-    return String(index);
+  const renderDailyItem = useCallback(({ item }: { item: DailyReportEntry }): React.JSX.Element => {
+    return <DailyReportCard item={item} />;
   }, []);
 
-  const reportedCount = reports.filter((r) => r.lastDocID !== null).length;
-  const totalHours = reports.reduce((sum, r) => sum + r.totalServiceHours, 0);
+  const compareKeyExtractor = useCallback((item: ReportEntry): string => {
+    return item.workDate;
+  }, []);
+
+  const dailyKeyExtractor = useCallback((item: DailyReportEntry, index: number): string => {
+    return `${item.dStartDate}-${item.dCode}-${index}`;
+  }, []);
+
+  const reportedCount = compareReports.filter((r) => r.lastDocID !== null).length;
+  const compareTotalHours = compareReports.reduce((sum, r) => sum + r.totalServiceHours, 0);
+  const dailyTotalHours = dailyReports.reduce((sum, r) => sum + r.quantity / 60, 0);
 
   return (
     <View style={styles.container}>
       <View style={styles.dateSection}>
+        <View style={styles.segmentedControl}>
+          <Pressable
+            style={[styles.segment, reportType === "compare" && styles.segmentActive]}
+            onPress={(): void => handleReportTypeChange("compare")}
+          >
+            <Text style={[styles.segmentText, reportType === "compare" && styles.segmentTextActive]}>Compare</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.segment, reportType === "daily" && styles.segmentActive]}
+            onPress={(): void => handleReportTypeChange("daily")}
+          >
+            <Text style={[styles.segmentText, reportType === "daily" && styles.segmentTextActive]}>Daily</Text>
+          </Pressable>
+        </View>
+
         <View style={styles.dateRow}>
           <View style={styles.datePickerWrapper}>
             <DateTimePicker value={fromDate} onChange={setFromDate} mode="date" label="From" />
@@ -130,7 +126,11 @@ export default function ReportsScreen(): React.JSX.Element {
           </View>
         </View>
 
-        <Pressable style={styles.loadButton} onPress={handleLoadReports} disabled={isLoading || !browserId}>
+        <Pressable
+          style={[styles.loadButton, isLoadDisabled && styles.buttonDisabled]}
+          onPress={handleLoadReports}
+          disabled={isLoadDisabled}
+        >
           {isLoading ? (
             <ActivityIndicator color={COLORS.background} />
           ) : (
@@ -139,36 +139,69 @@ export default function ReportsScreen(): React.JSX.Element {
         </Pressable>
       </View>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <Text selectable style={styles.error}>
+          {error}
+        </Text>
+      ) : null}
 
-      {reports.length > 0 && (
-        <View style={styles.summaryBar}>
-          <Text style={styles.summaryText}>
-            {reportedCount}/{reports.length} days reported
-          </Text>
-          <Text style={styles.summaryText}>{totalHours.toFixed(1)}h total</Text>
-        </View>
+      {reportType === "compare" ? (
+        <>
+          {compareReports.length > 0 && (
+            <View style={styles.summaryBar}>
+              <Text style={styles.summaryText}>
+                {reportedCount}/{compareReports.length} days reported
+              </Text>
+              <Text style={styles.summaryText}>{compareTotalHours.toFixed(1)}h total</Text>
+            </View>
+          )}
+          <FlatList
+            data={compareReports}
+            renderItem={renderCompareItem}
+            keyExtractor={compareKeyExtractor}
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            contentInsetAdjustmentBehavior="automatic"
+            ListEmptyComponent={
+              <Text style={styles.emptyText}>
+                {isLoading ? "" : "No reports loaded. Select a date range and tap Load."}
+              </Text>
+            }
+          />
+        </>
+      ) : (
+        <>
+          {dailyReports.length > 0 && (
+            <View style={styles.summaryBar}>
+              <Text style={styles.summaryText}>{dailyReports.length} entries</Text>
+              <Text style={styles.summaryText}>{dailyTotalHours.toFixed(1)}h total</Text>
+            </View>
+          )}
+          <FlatList
+            data={dailyReports}
+            renderItem={renderDailyItem}
+            keyExtractor={dailyKeyExtractor}
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            contentInsetAdjustmentBehavior="automatic"
+            ListEmptyComponent={
+              <Text style={styles.emptyText}>
+                {isLoading ? "" : "No reports loaded. Select a date range and tap Load."}
+              </Text>
+            }
+          />
+        </>
       )}
 
-      <FlatList
-        data={reports}
-        renderItem={renderReportItem}
-        keyExtractor={keyExtractor}
-        style={styles.list}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>
-            {isLoading ? "" : "No reports loaded. Select a date range and tap Load."}
-          </Text>
-        }
-      />
-
       <View style={styles.bottomBar}>
-        <Pressable style={styles.submitButton} onPress={(): void => router.push("/submit-report")}>
+        <Pressable
+          style={styles.submitButton}
+          onPress={(): void => {
+            triggerHapticLight();
+            router.push("/submit-report");
+          }}
+        >
           <Text style={styles.submitButtonText}>+ Submit Report</Text>
-        </Pressable>
-        <Pressable style={styles.signOutButton} onPress={signOut}>
-          <Text style={styles.signOutButtonText}>Sign Out</Text>
         </Pressable>
       </View>
     </View>
@@ -178,32 +211,25 @@ export default function ReportsScreen(): React.JSX.Element {
 const styles: {
   container: ViewStyle;
   dateSection: ViewStyle;
+  segmentedControl: ViewStyle;
+  segment: ViewStyle;
+  segmentActive: ViewStyle;
+  segmentText: TextStyle;
+  segmentTextActive: TextStyle;
   dateRow: ViewStyle;
   datePickerWrapper: ViewStyle;
   loadButton: ViewStyle;
   loadButtonText: TextStyle;
+  buttonDisabled: ViewStyle;
   error: TextStyle;
   summaryBar: ViewStyle;
   summaryText: TextStyle;
   list: ViewStyle;
   listContent: ViewStyle;
-  reportCard: ViewStyle;
-  reportHeader: ViewStyle;
-  reportDate: TextStyle;
-  reportDay: TextStyle;
-  hoursSection: ViewStyle;
-  reportHours: TextStyle;
-  expectedHours: TextStyle;
-  reportDetails: ViewStyle;
-  timeRange: TextStyle;
-  statusBadge: TextStyle;
-  diffText: TextStyle;
   emptyText: TextStyle;
   bottomBar: ViewStyle;
   submitButton: ViewStyle;
   submitButtonText: TextStyle;
-  signOutButton: ViewStyle;
-  signOutButtonText: TextStyle;
 } = StyleSheet.create({
   container: {
     flex: 1,
@@ -213,6 +239,31 @@ const styles: {
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+  },
+  segmentedControl: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    borderCurve: "continuous",
+    marginBottom: 12,
+    overflow: "hidden",
+  },
+  segment: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  segmentActive: {
+    backgroundColor: COLORS.primary,
+  },
+  segmentText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+  },
+  segmentTextActive: {
+    color: COLORS.background,
   },
   dateRow: {
     flexDirection: "row",
@@ -224,6 +275,7 @@ const styles: {
   loadButton: {
     backgroundColor: COLORS.primary,
     borderRadius: 8,
+    borderCurve: "continuous",
     padding: 14,
     alignItems: "center",
   },
@@ -231,6 +283,9 @@ const styles: {
     color: COLORS.background,
     fontSize: 16,
     fontWeight: "600",
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   error: {
     color: "#d32f2f",
@@ -251,66 +306,13 @@ const styles: {
     fontSize: 13,
     fontWeight: "600",
     color: COLORS.textSecondary,
+    fontVariant: ["tabular-nums"],
   },
   list: {
     flex: 1,
   },
   listContent: {
     padding: 16,
-  },
-  reportCard: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    padding: 14,
-    marginBottom: 10,
-  },
-  reportHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 6,
-  },
-  reportDate: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-  reportDay: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  hoursSection: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 4,
-  },
-  reportHours: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  expectedHours: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-  },
-  reportDetails: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  timeRange: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-  },
-  statusBadge: {
-    fontSize: 12,
-    fontWeight: "600",
-    textTransform: "uppercase",
-  },
-  diffText: {
-    fontSize: 12,
-    marginTop: 4,
   },
   emptyText: {
     fontSize: 14,
@@ -329,6 +331,7 @@ const styles: {
     flex: 1,
     backgroundColor: COLORS.primary,
     borderRadius: 8,
+    borderCurve: "continuous",
     padding: 14,
     alignItems: "center",
   },
@@ -336,17 +339,5 @@ const styles: {
     color: COLORS.background,
     fontSize: 16,
     fontWeight: "600",
-  },
-  signOutButton: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    padding: 14,
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  signOutButtonText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
   },
 });

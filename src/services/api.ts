@@ -2,6 +2,7 @@ import { API_BASE_URL } from "@/constants/config";
 import { getAuthToken } from "@/services/firebase";
 import type {
   ApiResponse,
+  DailyReportEntry,
   Project,
   ReportEntry,
   SendReportPayload,
@@ -54,6 +55,19 @@ export async function getCompareReports(
   browserID: string
 ): Promise<readonly ReportEntry[]> {
   const result = await apiPost<{ reports: readonly ReportEntry[] }>("/getCompareReports", {
+    fromDate,
+    toDate,
+    browserID,
+  });
+  return result.reports;
+}
+
+export async function getDailyReports(
+  fromDate: string,
+  toDate: string,
+  browserID: string
+): Promise<readonly DailyReportEntry[]> {
+  const result = await apiPost<{ reports: readonly DailyReportEntry[] }>("/getDailyReports", {
     fromDate,
     toDate,
     browserID,
