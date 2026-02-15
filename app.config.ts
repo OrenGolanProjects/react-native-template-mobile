@@ -24,7 +24,7 @@ const config: ExpoConfig = {
     output: "static",
     favicon: "./assets/images/favicon.png",
   },
-  plugins: ["expo-router", "expo-font"],
+  plugins: ["expo-router", "expo-font", "expo-secure-store", "@react-native-community/datetimepicker"],
   experiments: {
     typedRoutes: true,
   },
