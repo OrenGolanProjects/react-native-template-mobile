@@ -28,9 +28,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.JSX.Element
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    console.warn("[APP] AuthContext: setting up onAuthStateChanged listener...");
     const unsubscribe = onAuthStateChanged(firebaseAuth, (firebaseUser) => {
-      console.warn("[APP] AuthContext: auth state changed, user:", firebaseUser ? firebaseUser.email : "null");
       setUser(firebaseUser);
       setIsLoading(false);
     });
