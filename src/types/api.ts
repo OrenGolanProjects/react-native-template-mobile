@@ -80,3 +80,13 @@ export interface UserCredentialsPayload {
   readonly employeeCode: string;
   readonly employeePass: string;
 }
+
+export interface TimeEntry {
+  readonly id: string;
+  readonly projectCode: string;
+  readonly projectName: string;
+  readonly clientName: string;
+  readonly startTime: string;
+  readonly endTime: string | null;
+  readonly date: string;
+}
