@@ -38,7 +38,7 @@ function AuthGate(): React.JSX.Element {
       <Stack.Screen
         name="index"
         options={{
-          title: "Reports",
+          title: "Project Hive",
           headerRight: () => (
             <Pressable onPress={signOut} hitSlop={8}>
               <Text style={styles.signOutText}>Sign Out</Text>
@@ -46,6 +46,9 @@ function AuthGate(): React.JSX.Element {
           ),
         }}
       />
+      <Stack.Screen name="reports" options={{ title: "Reports" }} />
+      <Stack.Screen name="saved-records" options={{ title: "Saved Records" }} />
+      <Stack.Screen name="validate-records" options={{ title: "Review & Send" }} />
       <Stack.Screen name="submit-report" options={{ title: "Submit Report" }} />
       <Stack.Screen name="sign-in" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" />

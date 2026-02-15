@@ -1,5 +1,5 @@
-import { useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -10,198 +10,125 @@ import {
   View,
   type ViewStyle,
 } from "react-native";
-import { DailyReportCard } from "@/components/DailyReportCard";
-import { DateTimePicker } from "@/components/DateTimePicker";
-import { ReportCard } from "@/components/ReportCard";
+import { ProjectHiveCard } from "@/components/ProjectHiveCard";
 import { COLORS } from "@/constants/colors";
 import { useBrowserId } from "@/hooks/useBrowserId";
-import { triggerHapticError, triggerHapticLight, triggerHapticSuccess } from "@/hooks/useHaptics";
-import { getCompareReports, getDailyReports } from "@/services/api";
-import type { DailyReportEntry, ReportEntry } from "@/types/api";
+import { triggerHapticLight } from "@/hooks/useHaptics";
+import { useTimeEntries } from "@/hooks/useTimeEntries";
+import { getUserProjects } from "@/services/api";
+import type { Project } from "@/types/api";
 
-type ReportType = "compare" | "daily";
-
-function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0];
-}
-
-function getMonthStart(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1);
-}
-
-function getMonthEnd(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth() + 1, 0);
-}
-
-export default function ReportsScreen(): React.JSX.Element {
+export default function ProjectHiveScreen(): React.JSX.Element {
   const router = useRouter();
   const browserId = useBrowserId();
-  const [reportType, setReportType] = useState<ReportType>("compare");
-  const [fromDate, setFromDate] = useState(getMonthStart);
-  const [toDate, setToDate] = useState(getMonthEnd);
-  const [compareReports, setCompareReports] = useState<readonly ReportEntry[]>([]);
-  const [dailyReports, setDailyReports] = useState<readonly DailyReportEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const { activeEntry, elapsedSeconds, completedCount, toggleTracking, reload } = useTimeEntries();
+  const [projects, setProjects] = useState<readonly Project[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [error, setError] = useState("");
 
-  const isLoadDisabled = isLoading || !browserId;
-
-  function handleReportTypeChange(type: ReportType): void {
-    triggerHapticLight();
-    setReportType(type);
-  }
-
-  async function handleLoadReports(): Promise<void> {
-    if (!browserId) {
-      return;
-    }
-    setError("");
-    setIsLoading(true);
-    try {
-      const from = formatDate(fromDate);
-      const to = formatDate(toDate);
-      if (reportType === "compare") {
-        const result = await getCompareReports(from, to, browserId);
-        setCompareReports(result);
-      } else {
-        const result = await getDailyReports(from, to, browserId);
-        setDailyReports(result);
+  useEffect(() => {
+    async function loadProjects(): Promise<void> {
+      if (!browserId) {
+        return;
       }
-      triggerHapticSuccess();
-    } catch (err: unknown) {
-      const apiError = err as { message?: string };
-      setError(apiError.message ?? "Failed to load reports");
-      triggerHapticError();
-    } finally {
-      setIsLoading(false);
+      try {
+        const result = await getUserProjects(browserId);
+        const seen = new Set<string>();
+        const unique = result.filter((p) => {
+          if (seen.has(p.btCode)) {
+            return false;
+          }
+          seen.add(p.btCode);
+          return true;
+        });
+        setProjects(unique);
+      } catch (err: unknown) {
+        const apiError = err as { message?: string };
+        setError(apiError.message ?? "Failed to load projects");
+      } finally {
+        setIsLoadingProjects(false);
+      }
     }
-  }
+    loadProjects();
+  }, [browserId]);
 
-  const renderCompareItem = useCallback(({ item }: { item: ReportEntry }): React.JSX.Element => {
-    return <ReportCard item={item} />;
+  useFocusEffect(
+    useCallback(() => {
+      reload();
+    }, [reload])
+  );
+
+  const handleToggle = useCallback(
+    async (project: Project): Promise<void> => {
+      await toggleTracking(project);
+    },
+    [toggleTracking]
+  );
+
+  const renderProjectCard = useCallback(
+    ({ item }: { item: Project }): React.JSX.Element => {
+      const isActive = activeEntry?.projectCode === item.btCode;
+      return (
+        <ProjectHiveCard
+          project={item}
+          isActive={isActive}
+          elapsedSeconds={isActive ? elapsedSeconds : 0}
+          onPress={handleToggle}
+        />
+      );
+    },
+    [activeEntry, elapsedSeconds, handleToggle]
+  );
+
+  const keyExtractor = useCallback((item: Project): string => {
+    return item.btCode;
   }, []);
-
-  const renderDailyItem = useCallback(({ item }: { item: DailyReportEntry }): React.JSX.Element => {
-    return <DailyReportCard item={item} />;
-  }, []);
-
-  const compareKeyExtractor = useCallback((item: ReportEntry): string => {
-    return item.workDate;
-  }, []);
-
-  const dailyKeyExtractor = useCallback((item: DailyReportEntry, index: number): string => {
-    return `${item.dStartDate}-${item.dCode}-${index}`;
-  }, []);
-
-  const reportedCount = compareReports.filter((r) => r.lastDocID !== null).length;
-  const compareTotalHours = compareReports.reduce((sum, r) => sum + r.totalServiceHours, 0);
-  const dailyTotalHours = dailyReports.reduce((sum, r) => sum + r.quantity / 60, 0);
 
   return (
     <View style={styles.container}>
-      <View style={styles.dateSection}>
-        <View style={styles.segmentedControl}>
-          <Pressable
-            style={[styles.segment, reportType === "compare" && styles.segmentActive]}
-            onPress={(): void => handleReportTypeChange("compare")}
-          >
-            <Text style={[styles.segmentText, reportType === "compare" && styles.segmentTextActive]}>Compare</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.segment, reportType === "daily" && styles.segmentActive]}
-            onPress={(): void => handleReportTypeChange("daily")}
-          >
-            <Text style={[styles.segmentText, reportType === "daily" && styles.segmentTextActive]}>Daily</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.dateRow}>
-          <View style={styles.datePickerWrapper}>
-            <DateTimePicker value={fromDate} onChange={setFromDate} mode="date" label="From" />
-          </View>
-          <View style={styles.datePickerWrapper}>
-            <DateTimePicker value={toDate} onChange={setToDate} mode="date" label="To" />
-          </View>
-        </View>
-
-        <Pressable
-          style={[styles.loadButton, isLoadDisabled && styles.buttonDisabled]}
-          onPress={handleLoadReports}
-          disabled={isLoadDisabled}
-        >
-          {isLoading ? (
-            <ActivityIndicator color={COLORS.background} />
-          ) : (
-            <Text style={styles.loadButtonText}>Load Reports</Text>
-          )}
-        </Pressable>
-      </View>
-
       {error ? (
         <Text selectable style={styles.error}>
           {error}
         </Text>
       ) : null}
 
-      {reportType === "compare" ? (
-        <>
-          {compareReports.length > 0 && (
-            <View style={styles.summaryBar}>
-              <Text style={styles.summaryText}>
-                {reportedCount}/{compareReports.length} days reported
-              </Text>
-              <Text style={styles.summaryText}>{compareTotalHours.toFixed(1)}h total</Text>
-            </View>
-          )}
-          <FlatList
-            data={compareReports}
-            renderItem={renderCompareItem}
-            keyExtractor={compareKeyExtractor}
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            contentInsetAdjustmentBehavior="automatic"
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>
-                {isLoading ? "" : "No reports loaded. Select a date range and tap Load."}
-              </Text>
-            }
-          />
-        </>
+      {isLoadingProjects ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Loading projects...</Text>
+        </View>
       ) : (
-        <>
-          {dailyReports.length > 0 && (
-            <View style={styles.summaryBar}>
-              <Text style={styles.summaryText}>{dailyReports.length} entries</Text>
-              <Text style={styles.summaryText}>{dailyTotalHours.toFixed(1)}h total</Text>
-            </View>
-          )}
-          <FlatList
-            data={dailyReports}
-            renderItem={renderDailyItem}
-            keyExtractor={dailyKeyExtractor}
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            contentInsetAdjustmentBehavior="automatic"
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>
-                {isLoading ? "" : "No reports loaded. Select a date range and tap Load."}
-              </Text>
-            }
-          />
-        </>
+        <FlatList
+          data={projects}
+          renderItem={renderProjectCard}
+          keyExtractor={keyExtractor}
+          numColumns={2}
+          contentContainerStyle={styles.gridContent}
+          contentInsetAdjustmentBehavior="automatic"
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No projects found. Check your credentials in Settings.</Text>
+          }
+        />
       )}
 
       <View style={styles.bottomBar}>
         <Pressable
-          style={styles.submitButton}
+          style={styles.secondaryButton}
           onPress={(): void => {
             triggerHapticLight();
-            router.push("/submit-report");
+            router.push("/reports");
           }}
         >
-          <Text style={styles.submitButtonText}>+ Submit Report</Text>
+          <Text style={styles.secondaryButtonText}>View Reports</Text>
+        </Pressable>
+        <Pressable
+          style={styles.primaryButton}
+          onPress={(): void => {
+            triggerHapticLight();
+            router.push("/saved-records");
+          }}
+        >
+          <Text style={styles.primaryButtonText}>Saved Records ({completedCount})</Text>
         </Pressable>
       </View>
     </View>
@@ -210,82 +137,20 @@ export default function ReportsScreen(): React.JSX.Element {
 
 const styles: {
   container: ViewStyle;
-  dateSection: ViewStyle;
-  segmentedControl: ViewStyle;
-  segment: ViewStyle;
-  segmentActive: ViewStyle;
-  segmentText: TextStyle;
-  segmentTextActive: TextStyle;
-  dateRow: ViewStyle;
-  datePickerWrapper: ViewStyle;
-  loadButton: ViewStyle;
-  loadButtonText: TextStyle;
-  buttonDisabled: ViewStyle;
   error: TextStyle;
-  summaryBar: ViewStyle;
-  summaryText: TextStyle;
-  list: ViewStyle;
-  listContent: ViewStyle;
+  loadingContainer: ViewStyle;
+  loadingText: TextStyle;
+  gridContent: ViewStyle;
   emptyText: TextStyle;
   bottomBar: ViewStyle;
-  submitButton: ViewStyle;
-  submitButtonText: TextStyle;
+  secondaryButton: ViewStyle;
+  secondaryButtonText: TextStyle;
+  primaryButton: ViewStyle;
+  primaryButtonText: TextStyle;
 } = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-  },
-  dateSection: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  segmentedControl: {
-    flexDirection: "row",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    borderCurve: "continuous",
-    marginBottom: 12,
-    overflow: "hidden",
-  },
-  segment: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: "center",
-  },
-  segmentActive: {
-    backgroundColor: COLORS.primary,
-  },
-  segmentText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
-  },
-  segmentTextActive: {
-    color: COLORS.background,
-  },
-  dateRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  datePickerWrapper: {
-    flex: 1,
-  },
-  loadButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    borderCurve: "continuous",
-    padding: 14,
-    alignItems: "center",
-  },
-  loadButtonText: {
-    color: COLORS.background,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  buttonDisabled: {
-    opacity: 0.5,
   },
   error: {
     color: "#d32f2f",
@@ -293,26 +158,18 @@ const styles: {
     padding: 16,
     textAlign: "center",
   },
-  summaryBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: "#f5f5f5",
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  summaryText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
-    fontVariant: ["tabular-nums"],
-  },
-  list: {
+  loadingContainer: {
     flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 12,
   },
-  listContent: {
-    padding: 16,
+  loadingText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
+  gridContent: {
+    padding: 10,
   },
   emptyText: {
     fontSize: 14,
@@ -327,7 +184,21 @@ const styles: {
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },
-  submitButton: {
+  secondaryButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: 8,
+    borderCurve: "continuous",
+    padding: 14,
+    alignItems: "center",
+  },
+  secondaryButtonText: {
+    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  primaryButton: {
     flex: 1,
     backgroundColor: COLORS.primary,
     borderRadius: 8,
@@ -335,7 +206,7 @@ const styles: {
     padding: 14,
     alignItems: "center",
   },
-  submitButtonText: {
+  primaryButtonText: {
     color: COLORS.background,
     fontSize: 16,
     fontWeight: "600",
