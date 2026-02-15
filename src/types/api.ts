@@ -62,6 +62,20 @@ export interface SendReportResult {
   readonly invalidLines: readonly ReportLineResult[];
 }
 
+export interface DailyReportEntry {
+  readonly dStartDate: string;
+  readonly dEndDate: string;
+  readonly dStartTime: string;
+  readonly dEndTime: string;
+  readonly quantity: number;
+  readonly location: string;
+  readonly shortDescription: string;
+  readonly accName: string;
+  readonly status: string;
+  readonly agnName: string;
+  readonly dCode: string;
+}
+
 export interface UserCredentialsPayload {
   readonly employeeCode: string;
   readonly employeePass: string;
