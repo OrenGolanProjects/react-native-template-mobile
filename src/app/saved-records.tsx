@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   Alert,
   Platform,
@@ -11,11 +11,13 @@ import {
   View,
   type ViewStyle,
 } from "react-native";
+import { EditEntryModal } from "@/components/EditEntryModal";
 import { TimeEntryRow } from "@/components/TimeEntryRow";
 import { COLORS } from "@/constants/colors";
 import { triggerHapticLight } from "@/hooks/useHaptics";
+import { useProjects } from "@/hooks/useProjects";
 import { useTimeEntries } from "@/hooks/useTimeEntries";
-import type { TimeEntry } from "@/types/api";
+import type { TimeEntry, TimeEntryEditable } from "@/types/api";
 
 interface Section {
   readonly title: string;
@@ -38,7 +40,9 @@ function groupByDate(entries: readonly TimeEntry[]): readonly Section[] {
 
 export default function SavedRecordsScreen(): React.JSX.Element {
   const router = useRouter();
-  const { entries, completedCount, removeEntry, reload } = useTimeEntries();
+  const { entries, completedCount, editEntry, removeEntry, reload } = useTimeEntries();
+  const { projects } = useProjects();
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -71,11 +75,23 @@ export default function SavedRecordsScreen(): React.JSX.Element {
     [removeEntry]
   );
 
+  const handleEdit = useCallback((entry: TimeEntry): void => {
+    setEditingEntry(entry);
+  }, []);
+
+  const handleSaveEdit = useCallback(
+    async (id: string, updates: TimeEntryEditable): Promise<void> => {
+      await editEntry(id, updates);
+      setEditingEntry(null);
+    },
+    [editEntry]
+  );
+
   const renderItem = useCallback(
     ({ item }: { item: TimeEntry }): React.JSX.Element => {
-      return <TimeEntryRow entry={item} onDelete={handleDelete} />;
+      return <TimeEntryRow entry={item} onEdit={handleEdit} onDelete={handleDelete} />;
     },
-    [handleDelete]
+    [handleDelete, handleEdit]
   );
 
   const renderSectionHeader = useCallback(({ section }: { section: Section }): React.JSX.Element => {
@@ -115,6 +131,14 @@ export default function SavedRecordsScreen(): React.JSX.Element {
           <Text style={styles.primaryButtonText}>Send All ({completedCount})</Text>
         </Pressable>
       </View>
+
+      <EditEntryModal
+        visible={editingEntry !== null}
+        entry={editingEntry}
+        projects={projects}
+        onSave={handleSaveEdit}
+        onClose={(): void => setEditingEntry(null)}
+      />
     </View>
   );
 }

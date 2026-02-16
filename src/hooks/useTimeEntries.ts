@@ -8,7 +8,7 @@ import {
   loadTimeEntries,
   updateTimeEntry,
 } from "@/services/timeEntryStorage";
-import type { Project, TimeEntry } from "@/types/api";
+import type { Project, TimeEntry, TimeEntryEditable } from "@/types/api";
 
 interface UseTimeEntriesReturn {
   readonly entries: readonly TimeEntry[];
@@ -17,6 +17,7 @@ interface UseTimeEntriesReturn {
   readonly isLoading: boolean;
   readonly completedCount: number;
   readonly toggleTracking: (project: Project) => Promise<void>;
+  readonly editEntry: (id: string, updates: TimeEntryEditable) => Promise<void>;
   readonly removeEntry: (id: string) => Promise<void>;
   readonly clearSentEntries: (ids: readonly string[]) => Promise<void>;
   readonly reload: () => Promise<void>;
@@ -98,6 +99,11 @@ export function useTimeEntries(): UseTimeEntriesReturn {
     }
   }, []);
 
+  const editEntry = useCallback(async (id: string, updates: TimeEntryEditable): Promise<void> => {
+    const updated = await updateTimeEntry(id, updates);
+    setEntries(updated);
+  }, []);
+
   const removeEntry = useCallback(async (id: string): Promise<void> => {
     setEntries((prev) => prev.filter((e) => e.id !== id));
     await deleteTimeEntry(id);
@@ -120,6 +126,7 @@ export function useTimeEntries(): UseTimeEntriesReturn {
     isLoading,
     completedCount,
     toggleTracking,
+    editEntry,
     removeEntry,
     clearSentEntries,
     reload,

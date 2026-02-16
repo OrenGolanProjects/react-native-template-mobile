@@ -6,6 +6,7 @@ import type { TimeEntry } from "@/types/api";
 
 interface TimeEntryRowProps {
   readonly entry: TimeEntry;
+  readonly onEdit: (entry: TimeEntry) => void;
   readonly onDelete: (id: string) => void;
 }
 
@@ -22,7 +23,7 @@ function formatDuration(startISO: string, endISO: string): string {
   return `${hours}h ${String(minutes).padStart(2, "0")}m`;
 }
 
-function TimeEntryRowInner({ entry, onDelete }: TimeEntryRowProps): React.JSX.Element {
+function TimeEntryRowInner({ entry, onEdit, onDelete }: TimeEntryRowProps): React.JSX.Element {
   const timeRange = entry.endTime
     ? `${formatTimeFromISO(entry.startTime)} - ${formatTimeFromISO(entry.endTime)}`
     : `${formatTimeFromISO(entry.startTime)} - ...`;
@@ -43,16 +44,28 @@ function TimeEntryRowInner({ entry, onDelete }: TimeEntryRowProps): React.JSX.El
           <Text style={styles.duration}>{duration}</Text>
         </View>
       </View>
-      <Pressable
-        style={styles.deleteButton}
-        onPress={(): void => {
-          triggerHapticLight();
-          onDelete(entry.id);
-        }}
-        hitSlop={8}
-      >
-        <Text style={styles.deleteText}>Delete</Text>
-      </Pressable>
+      <View style={styles.actions}>
+        <Pressable
+          style={styles.editButton}
+          onPress={(): void => {
+            triggerHapticLight();
+            onEdit(entry);
+          }}
+          hitSlop={8}
+        >
+          <Text style={styles.editText}>Edit</Text>
+        </Pressable>
+        <Pressable
+          style={styles.deleteButton}
+          onPress={(): void => {
+            triggerHapticLight();
+            onDelete(entry.id);
+          }}
+          hitSlop={8}
+        >
+          <Text style={styles.deleteText}>Delete</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -67,6 +80,9 @@ const styles: {
   timeInfo: ViewStyle;
   timeRange: TextStyle;
   duration: TextStyle;
+  actions: ViewStyle;
+  editButton: ViewStyle;
+  editText: TextStyle;
   deleteButton: ViewStyle;
   deleteText: TextStyle;
 } = StyleSheet.create({
@@ -110,9 +126,18 @@ const styles: {
     color: COLORS.primary,
     fontVariant: ["tabular-nums"],
   },
-  deleteButton: {
+  actions: {
+    alignItems: "flex-end",
+    gap: 8,
     paddingLeft: 12,
   },
+  editButton: {},
+  editText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: "500",
+  },
+  deleteButton: {},
   deleteText: {
     fontSize: 14,
     color: "#d32f2f",
