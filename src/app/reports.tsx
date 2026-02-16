@@ -48,6 +48,22 @@ export default function ReportsScreen(): React.JSX.Element {
 
   const isLoadDisabled = isLoading || !browserId;
 
+  function handleFromDateChange(date: Date): void {
+    if (date > toDate) {
+      setFromDate(toDate);
+      return;
+    }
+    setFromDate(date);
+  }
+
+  function handleToDateChange(date: Date): void {
+    if (date < fromDate) {
+      setToDate(fromDate);
+      return;
+    }
+    setToDate(date);
+  }
+
   function handleReportTypeChange(type: ReportType): void {
     triggerHapticLight();
     setReportType(type);
@@ -119,10 +135,10 @@ export default function ReportsScreen(): React.JSX.Element {
 
         <View style={styles.dateRow}>
           <View style={styles.datePickerWrapper}>
-            <DateTimePicker value={fromDate} onChange={setFromDate} mode="date" label="From" />
+            <DateTimePicker value={fromDate} onChange={handleFromDateChange} mode="date" label="From" />
           </View>
           <View style={styles.datePickerWrapper}>
-            <DateTimePicker value={toDate} onChange={setToDate} mode="date" label="To" />
+            <DateTimePicker value={toDate} onChange={handleToDateChange} mode="date" label="To" />
           </View>
         </View>
 

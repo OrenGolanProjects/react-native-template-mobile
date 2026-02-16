@@ -1,10 +1,21 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { TimeEntry } from "@/types/api";
 
-const STORAGE_KEY = "dh_time_entries";
+const STORAGE_KEY_PREFIX = "dh_time_entries";
+const DEMO_SUFFIX = "_demo";
+
+let currentUserSuffix = "";
+
+export function setStorageUser(uid: string, isDemo: boolean): void {
+  currentUserSuffix = isDemo ? DEMO_SUFFIX : `_${uid}`;
+}
+
+function getStorageKey(): string {
+  return `${STORAGE_KEY_PREFIX}${currentUserSuffix}`;
+}
 
 export async function loadTimeEntries(): Promise<readonly TimeEntry[]> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+  const raw = await AsyncStorage.getItem(getStorageKey());
   if (!raw) {
     return [];
   }
@@ -12,7 +23,7 @@ export async function loadTimeEntries(): Promise<readonly TimeEntry[]> {
 }
 
 export async function saveTimeEntries(entries: readonly TimeEntry[]): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  await AsyncStorage.setItem(getStorageKey(), JSON.stringify(entries));
 }
 
 export async function addTimeEntry(entry: TimeEntry): Promise<readonly TimeEntry[]> {
