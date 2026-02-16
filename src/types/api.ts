@@ -90,3 +90,7 @@ export interface TimeEntry {
   readonly endTime: string | null;
   readonly date: string;
 }
+
+export type TimeEntryEditable = Partial<
+  Pick<TimeEntry, "startTime" | "endTime" | "date" | "projectCode" | "projectName" | "clientName">
+>;

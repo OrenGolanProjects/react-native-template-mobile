@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { TimeEntry } from "@/types/api";
+import type { TimeEntry, TimeEntryEditable } from "@/types/api";
 
 const STORAGE_KEY_PREFIX = "dh_time_entries";
 const DEMO_SUFFIX = "_demo";
@@ -33,10 +33,7 @@ export async function addTimeEntry(entry: TimeEntry): Promise<readonly TimeEntry
   return updated;
 }
 
-export async function updateTimeEntry(
-  id: string,
-  updates: Partial<Pick<TimeEntry, "endTime">>
-): Promise<readonly TimeEntry[]> {
+export async function updateTimeEntry(id: string, updates: TimeEntryEditable): Promise<readonly TimeEntry[]> {
   const entries = await loadTimeEntries();
   const updated = entries.map((e) => (e.id === id ? { ...e, ...updates } : e));
   await saveTimeEntries(updated);
