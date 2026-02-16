@@ -34,7 +34,7 @@ function AuthGate(): React.JSX.Element {
   }
 
   return (
-    <Stack>
+    <Stack screenOptions={{ headerTintColor: COLORS.text }}>
       <Stack.Screen
         name="index"
         options={{
