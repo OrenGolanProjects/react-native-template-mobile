@@ -15,6 +15,7 @@ import { COLORS } from "@/constants/colors";
 import { triggerHapticError } from "@/hooks/useHaptics";
 import { saveUserCredentials } from "@/services/api";
 import { useAuth } from "@/services/authContext";
+import { DEMO_EMAIL, DEMO_PASSWORD } from "@/services/demoData";
 
 export default function SignInScreen(): React.JSX.Element {
   const { signIn, signUp } = useAuth();
@@ -134,6 +135,32 @@ export default function SignInScreen(): React.JSX.Element {
             {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
           </Text>
         </Pressable>
+
+        <View style={styles.demoDivider}>
+          <View style={styles.demoDividerLine} />
+          <Text style={styles.demoDividerText}>OR</Text>
+          <View style={styles.demoDividerLine} />
+        </View>
+
+        <Pressable
+          style={[styles.demoButton, isLoading && styles.buttonDisabled]}
+          disabled={isLoading}
+          onPress={async (): Promise<void> => {
+            setError("");
+            setIsLoading(true);
+            try {
+              await signIn(DEMO_EMAIL, DEMO_PASSWORD);
+            } catch (err: unknown) {
+              const firebaseError = err as { message?: string };
+              setError(firebaseError.message ?? "Demo login failed");
+              triggerHapticError();
+            } finally {
+              setIsLoading(false);
+            }
+          }}
+        >
+          <Text style={styles.demoButtonText}>Try Demo</Text>
+        </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -152,6 +179,11 @@ const styles: {
   buttonDisabled: ViewStyle;
   secondaryButton: ViewStyle;
   secondaryButtonText: TextStyle;
+  demoDivider: ViewStyle;
+  demoDividerLine: ViewStyle;
+  demoDividerText: TextStyle;
+  demoButton: ViewStyle;
+  demoButtonText: TextStyle;
 } = StyleSheet.create({
   container: {
     flex: 1,
@@ -161,6 +193,9 @@ const styles: {
     flexGrow: 1,
     justifyContent: "center",
     padding: 24,
+    maxWidth: 360,
+    width: "100%",
+    alignSelf: "center",
   },
   title: {
     fontSize: 28,
@@ -223,5 +258,34 @@ const styles: {
   secondaryButtonText: {
     color: COLORS.primary,
     fontSize: 14,
+  },
+  demoDivider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 16,
+  },
+  demoDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+  demoDividerText: {
+    marginHorizontal: 12,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: "600",
+  },
+  demoButton: {
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderRadius: 8,
+    borderCurve: "continuous",
+    padding: 16,
+    alignItems: "center",
+  },
+  demoButtonText: {
+    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

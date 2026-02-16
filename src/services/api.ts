@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "@/constants/config";
+import { DEMO_PROJECTS, getDemoCompareReports, getDemoDailyReports, getDemoSendResult } from "@/services/demoData";
 import { getAuthToken } from "@/services/firebase";
 import type {
   ApiResponse,
@@ -9,6 +10,16 @@ import type {
   SendReportResult,
   UserCredentialsPayload,
 } from "@/types/api";
+
+let demoMode = false;
+
+export function setDemoMode(enabled: boolean): void {
+  demoMode = enabled;
+}
+
+export function isDemoModeActive(): boolean {
+  return demoMode;
+}
 
 export class ApiError extends Error {
   readonly statusCode: number;
@@ -41,10 +52,16 @@ async function apiPost<T>(path: string, body: Record<string, unknown>): Promise<
 }
 
 export async function saveUserCredentials(payload: UserCredentialsPayload): Promise<void> {
+  if (demoMode) {
+    return;
+  }
   await apiPost("/saveUserCredentials", payload as unknown as Record<string, unknown>);
 }
 
 export async function getUserProjects(browserID: string): Promise<readonly Project[]> {
+  if (demoMode) {
+    return DEMO_PROJECTS;
+  }
   const result = await apiPost<{ projects: readonly Project[] }>("/getUserProjects", { browserID });
   return result.projects;
 }
@@ -54,6 +71,9 @@ export async function getCompareReports(
   toDate: string,
   browserID: string
 ): Promise<readonly ReportEntry[]> {
+  if (demoMode) {
+    return getDemoCompareReports();
+  }
   const result = await apiPost<{ reports: readonly ReportEntry[] }>("/getCompareReports", {
     fromDate,
     toDate,
@@ -67,6 +87,9 @@ export async function getDailyReports(
   toDate: string,
   browserID: string
 ): Promise<readonly DailyReportEntry[]> {
+  if (demoMode) {
+    return getDemoDailyReports();
+  }
   const result = await apiPost<{ reports: readonly DailyReportEntry[] }>("/getDailyReports", {
     fromDate,
     toDate,
@@ -76,6 +99,9 @@ export async function getDailyReports(
 }
 
 export async function sendReport(payload: SendReportPayload): Promise<SendReportResult> {
+  if (demoMode) {
+    return getDemoSendResult();
+  }
   const result = await apiPost<SendReportResult>("/sendReport", payload as unknown as Record<string, unknown>);
   return result;
 }
