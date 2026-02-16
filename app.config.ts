@@ -12,6 +12,10 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.template.mobile",
+    infoPlist: {
+      // biome-ignore lint/style/useNamingConvention: Apple's required key name
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     adaptiveIcon: {
@@ -25,6 +29,11 @@ const config: ExpoConfig = {
     favicon: "./assets/images/favicon.png",
   },
   plugins: ["expo-router", "expo-font", "expo-secure-store", "@react-native-community/datetimepicker"],
+  extra: {
+    eas: {
+      projectId: "e5eabf6b-c943-439e-800a-f9b83059208d",
+    },
+  },
   experiments: {
     typedRoutes: true,
   },
