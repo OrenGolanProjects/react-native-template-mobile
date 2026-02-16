@@ -1,6 +1,16 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback } from "react";
-import { Alert, Pressable, SectionList, StyleSheet, Text, type TextStyle, View, type ViewStyle } from "react-native";
+import {
+  Alert,
+  Platform,
+  Pressable,
+  SectionList,
+  StyleSheet,
+  Text,
+  type TextStyle,
+  View,
+  type ViewStyle,
+} from "react-native";
 import { TimeEntryRow } from "@/components/TimeEntryRow";
 import { COLORS } from "@/constants/colors";
 import { triggerHapticLight } from "@/hooks/useHaptics";
@@ -40,6 +50,13 @@ export default function SavedRecordsScreen(): React.JSX.Element {
 
   const handleDelete = useCallback(
     (id: string): void => {
+      if (Platform.OS === "web") {
+        // eslint-disable-next-line no-restricted-globals
+        if (confirm("Are you sure you want to delete this time entry?")) {
+          removeEntry(id);
+        }
+        return;
+      }
       Alert.alert("Delete Entry", "Are you sure you want to delete this time entry?", [
         { text: "Cancel", style: "cancel" },
         {
@@ -80,6 +97,7 @@ export default function SavedRecordsScreen(): React.JSX.Element {
         renderItem={renderItem}
         renderSectionHeader={renderSectionHeader}
         keyExtractor={keyExtractor}
+        extraData={entries}
         contentContainerStyle={styles.listContent}
         contentInsetAdjustmentBehavior="automatic"
         ListEmptyComponent={<Text style={styles.emptyText}>No saved records yet. Track time from the Hive.</Text>}

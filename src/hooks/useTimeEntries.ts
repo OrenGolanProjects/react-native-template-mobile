@@ -99,8 +99,8 @@ export function useTimeEntries(): UseTimeEntriesReturn {
   }, []);
 
   const removeEntry = useCallback(async (id: string): Promise<void> => {
-    const updated = await deleteTimeEntry(id);
-    setEntries(updated);
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+    await deleteTimeEntry(id);
   }, []);
 
   const clearSentEntries = useCallback(async (ids: readonly string[]): Promise<void> => {
