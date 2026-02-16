@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -15,7 +15,8 @@ import { DateTimePicker } from "@/components/DateTimePicker";
 import { COLORS } from "@/constants/colors";
 import { useBrowserId } from "@/hooks/useBrowserId";
 import { triggerHapticError, triggerHapticLight, triggerHapticSuccess } from "@/hooks/useHaptics";
-import { getUserProjects, sendReport } from "@/services/api";
+import { useProjects } from "@/hooks/useProjects";
+import { sendReport } from "@/services/api";
 import type { Project, SendReportResult } from "@/types/api";
 
 function formatDate(date: Date): string {
@@ -31,7 +32,7 @@ function formatTime(date: Date): string {
 export default function SubmitReportScreen(): React.JSX.Element {
   const router = useRouter();
   const browserId = useBrowserId();
-  const [projects, setProjects] = useState<readonly Project[]>([]);
+  const { projects, isLoading: isLoadingProjects } = useProjects();
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [reportDate, setReportDate] = useState(() => new Date());
   const [startTime, setStartTime] = useState(() => {
@@ -45,30 +46,11 @@ export default function SubmitReportScreen(): React.JSX.Element {
     return d;
   });
   const [notes, setNotes] = useState("");
-  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<SendReportResult | null>(null);
 
   const isSubmitDisabled = isSubmitting || !selectedProject;
-
-  useEffect(() => {
-    async function loadProjects(): Promise<void> {
-      if (!browserId) {
-        return;
-      }
-      try {
-        const data = await getUserProjects(browserId);
-        setProjects(data);
-      } catch (err: unknown) {
-        const apiError = err as { message?: string };
-        setError(apiError.message ?? "Failed to load projects");
-      } finally {
-        setIsLoadingProjects(false);
-      }
-    }
-    loadProjects();
-  }, [browserId]);
 
   async function handleSubmit(): Promise<void> {
     if (!(selectedProject && browserId)) {

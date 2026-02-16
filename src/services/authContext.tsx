@@ -10,6 +10,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { setDemoMode } from "@/services/api";
 import { isDemoUser } from "@/services/demoData";
 import { firebaseAuth } from "@/services/firebase";
+import { clearProjectCache, setProjectStorageUser } from "@/services/projectStorage";
 import { setStorageUser } from "@/services/timeEntryStorage";
 
 const DEMO_USER_STUB = { uid: "demo-user", email: "test@test.il" } as User;
@@ -40,6 +41,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.JSX.Element
         setUser(firebaseUser);
         if (firebaseUser) {
           setStorageUser(firebaseUser.uid, false);
+          setProjectStorageUser(firebaseUser.uid, false);
         }
       }
       setIsLoading(false);
@@ -52,6 +54,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.JSX.Element
       setIsDemo(true);
       setDemoMode(true);
       setStorageUser("demo-user", true);
+      setProjectStorageUser("demo-user", true);
       setUser(DEMO_USER_STUB);
       return;
     }
@@ -63,6 +66,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.JSX.Element
   }, []);
 
   const signOut = useCallback(async (): Promise<void> => {
+    await clearProjectCache();
     if (isDemo) {
       setIsDemo(false);
       setDemoMode(false);

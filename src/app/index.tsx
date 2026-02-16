@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -12,45 +12,15 @@ import {
 } from "react-native";
 import { ProjectHiveCard } from "@/components/ProjectHiveCard";
 import { COLORS } from "@/constants/colors";
-import { useBrowserId } from "@/hooks/useBrowserId";
 import { triggerHapticLight } from "@/hooks/useHaptics";
+import { useProjects } from "@/hooks/useProjects";
 import { useTimeEntries } from "@/hooks/useTimeEntries";
-import { getUserProjects } from "@/services/api";
 import type { Project } from "@/types/api";
 
 export default function ProjectHiveScreen(): React.JSX.Element {
   const router = useRouter();
-  const browserId = useBrowserId();
   const { activeEntry, elapsedSeconds, completedCount, toggleTracking, reload } = useTimeEntries();
-  const [projects, setProjects] = useState<readonly Project[]>([]);
-  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    async function loadProjects(): Promise<void> {
-      if (!browserId) {
-        return;
-      }
-      try {
-        const result = await getUserProjects(browserId);
-        const seen = new Set<string>();
-        const unique = result.filter((p) => {
-          if (seen.has(p.btCode)) {
-            return false;
-          }
-          seen.add(p.btCode);
-          return true;
-        });
-        setProjects(unique);
-      } catch (err: unknown) {
-        const apiError = err as { message?: string };
-        setError(apiError.message ?? "Failed to load projects");
-      } finally {
-        setIsLoadingProjects(false);
-      }
-    }
-    loadProjects();
-  }, [browserId]);
+  const { projects, isLoading: isLoadingProjects, error } = useProjects();
 
   useFocusEffect(
     useCallback(() => {
